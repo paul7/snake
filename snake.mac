@@ -1,0 +1,212 @@
+	.title	snake
+
+	.mcall	exit$s,qiow$s,mrkt$,dir$,astx$s
+
+	.mcall	save02
+	.mcall	rnd,srnd
+	.mcall	gamini,entry,endtab,gamend
+
+	.psect	dpb,d,ro
+timer:	mrkt$	,20.,1,step
+
+	.psect	data,d,rw
+iosb:	.blkw	2
+y:	.word	20.
+x:	.word	20.
+dispy:	.word	0
+dispx:	.word	0
+cur:	.word	0
+dx:	.word	1
+dy:	.word	0
+len:	.word	3
+pausef:	.word	0
+maxx	=	40.
+maxy	=	40.
+field:	.blkb	maxy*maxx
+body:	.ascii	/+/
+empty:	.ascii	/ /
+target:	.ascii	/#/
+esc:	.byte	33
+buf:	.blkb	80.
+erase:	.ascii	<33>/[2J/
+erasel	=	. - erase
+fmt:	.asciz	/[%D;%DH%A/
+vbord:	.ascii	/|/
+hbord:	.ascii	/-/
+cbord:	.ascii	/+/
+
+	.psect	dispat,d,ro
+distab:	entry	q,.gmend
+	entry	Q,.gmend
+	entry	4,left
+	entry	8,up
+	entry	6,right
+	entry	2,down
+	entry	p,pause
+	entry	P,pause
+	entry	r,redraw
+	entry	R,redraw
+	endtab
+
+	.psect	code,i,ro
+start::	srnd
+	call	inifld
+	qiow$s	#io.wlb,#5,#1,,#iosb,,<#erase,#erasel>
+	call	border
+	call	disply
+	dir$	#timer
+	gamini	#distab
+	exit$s
+
+inifld:	mov	#field,r2
+	mov	#maxx,r0
+4$:	mov	#maxy,r1
+1$:	cmp	r0,x
+	bne	2$
+	cmp	r1,y
+	bne	2$
+	movb	len,(r2)+
+	br	3$
+2$:	clrb	(r2)+
+3$:	sob	r1,1$
+	sob	r0,4$
+	call	plctgt
+	return
+
+redraw:
+border:	mov	#maxy+1,r3
+	mov	#maxx+1,dispx
+	clr	dispy
+1$:	mov	#buf,r0
+	mov	#fmt,r1
+	mov	#vbord,cur
+	mov	#dispy,r2
+	call	$edmsg
+	sub	#esc,r0
+	qiow$s	#io.wlb,#5,#1,,#iosb,,<#esc,r0>
+	inc	dispy
+	sob	r3,1$
+	mov	#maxx+1,r3
+	mov	#maxy+1,dispy
+	clr	dispx
+2$:	mov	#buf,r0
+	mov	#fmt,r1
+	mov	#hbord,cur
+	mov	#dispy,r2
+	call	$edmsg
+	sub	#esc,r0
+	qiow$s	#io.wlb,#5,#1,,#iosb,,<#esc,r0>
+	inc	dispx
+	sob	r3,2$
+	mov	#buf,r0
+	mov	#fmt,r1
+	mov	#cbord,cur
+	mov	#dispy,r2
+	mov	#maxx+1,dispx
+	mov	#maxy+1,dispy
+	call	$edmsg
+	sub	#esc,r0
+	qiow$s	#io.wlb,#5,#1,,#iosb,,<#esc,r0>
+	return
+
+pause:	com	pausef
+	call	dostep
+	return
+
+left:	clr	dy
+	mov	#-1,dx
+	return
+	
+right:	clr	dy
+	mov	#1,dx
+	return
+	
+down:	mov	#1,dy
+	clr	dx
+	return
+	
+up:	mov	#-1,dy
+	clr	dx
+	return
+
+step:	add	#2,sp
+	call	dostep
+	astx$s
+
+dostep:	tst	pausef
+	bne	9$
+	dir$	#timer
+	sub	dx,x
+	bge	4$
+	add	#maxx,x
+4$:	sub	dy,y
+	bge	5$
+	add	#maxy,y
+5$:	cmp	x,#maxx
+	blt	2$
+	sub	#maxx,x
+2$:	cmp	y,#maxy
+	blt	3$
+	sub	#maxy,y
+3$:	mov	x,r0
+	mov	#maxy,r1
+	call	$mul
+	add	y,r1
+	tstb	field(r1)
+	bgt	oops
+	beq	1$
+	inc	len
+	call	plctgt
+1$:	movb	#1,field(r1)
+	call	disply
+9$:	return
+oops:	gamend
+	return
+
+plctgt:	save02
+	rnd	r0,#maxx
+	mov	#maxy,r1
+	call	$mul
+	rnd	r0,#maxy
+	add	r0,r1
+	tstb	field(r1)
+	bne	plctgt
+	movb	#-1,field(r1)
+	return
+
+disply:	mov	#field,r5
+	mov	#maxx,r4
+1$:	mov	#maxy,r3
+2$:	call	disp1	
+	inc	r5
+	sob	r3,2$
+	sob	r4,1$
+	return
+disp1:	movb	@r5,r2
+	beq	3$
+	cmp	r2,#-1
+	beq	6$
+	blt	3$
+	incb	@r5
+	cmp	r2,#1
+	beq	4$
+	cmp	r2,len
+	ble	3$
+	clrb	@r5
+	mov	#empty,cur
+	br	5$
+6$:	decb	@r5
+	mov	#target,cur
+	br	5$
+4$:	mov	#body,cur
+5$:	mov	r4,dispx
+	mov	r3,dispy
+	mov	#buf,r0
+	mov	#fmt,r1
+	mov	#dispy,r2
+	call	$edmsg
+	sub	#esc,r0
+	qiow$s	#io.wlb,#5,#1,,#iosb,,<#esc,r0>	
+3$:	return
+
+	.end	start

@@ -1,0 +1,76 @@
+	.title game
+	.ident	/X00.20/
+
+	.mcall	astx$s,qio$
+	.mcall	spnd$s,rsum$s,dir$,gtsk$
+
+	.mcall	mkq,enq,deq
+	.mcall	nosave
+
+	.psect	$$$dpb,d,ro
+inwait:	qio$	io.ata!tf.xcc,5,,,,,<cmdast>
+detach:	qio$	io.det,5
+getnam:	gtsk$	tskinf
+
+	.psect	$$$dat,d,rw
+stpflg:	.word	0
+tskinf:	.blkw	18.
+cmd:	.word	0
+char:	.byte	0
+	.even
+cmdque:	mkq	1
+
+	.macro	entry	char,handler
+	.byte	''char,0
+	.word	handler
+	.endm
+
+	.macro	endtab
+	.word	0
+	.endm
+
+	.macro	gamini	dsptab
+	mov	dsptab,-(sp)
+	call	.gmini
+	add	#2,sp
+	.endm
+
+	.macro	gamend
+	call	.gmend
+	.endm
+
+	.psect	$$$cod,i,ro
+.gmini::nosave
+	clr	stpflg
+	dir$	#getnam
+	dir$	#inwait
+loop:	tst	stpflg
+	bne	end
+	deq	#cmdque,#cmd
+	bcc	proces
+	spnd$s
+	br	loop
+end:	dir$	#detach
+	return
+proces:	mov	sarg(sp),r0
+2$:	tst	@r0
+	beq	loop
+	cmp	(r0)+,cmd
+	beq	1$
+	add	#2,r0
+	br	2$
+1$:	mov	@r0,r0
+	call	@r0
+	br	loop
+
+.gmend::inc	stpflg
+	rsum$s	#tskinf
+	return
+
+cmdast:	movb	(sp)+,char
+	enq	#cmdque,#char
+	bcs	1$
+	rsum$s	#tskinf
+1$:	astx$s
+
+	.end

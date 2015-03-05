@@ -1,0 +1,62 @@
+	.title	random
+	.ident	/X00.20/
+
+	.mcall	dir$,gtim$
+	.mcall	save05,nosave
+
+	.macro	rnd	dst,mod
+	.if nb	mod
+	mov	mod,-(sp)
+	.iff
+	clr	-(sp)
+	.endc
+	call	.rnd
+	mov	(sp)+,dst
+	.endm
+
+	.macro	srnd	seed
+	.if nb	seed
+	mov	seed,-(sp)
+	.iff
+	clr	-(sp)
+	.endc
+	call	.srnd
+	add	#2,sp
+	.endm
+
+	.psect	$$$dpb,d,ro
+gtime:	gtim$	time
+
+	.psect	$$$dat,d,rw
+time:	.blkw	10
+seed:	.word	123.
+	.word	456.
+mult:	.word	48271.
+
+	.psect	$$$cod,i,ro
+.rnd::	save05
+	mov	mult,r0
+	mov	seed,r2
+	mov	seed+2,r3
+	call	$dmul
+	mov	r0,seed
+	mov	r1,seed+2
+	mov	sarg(sp),r1
+	beq	1$
+	call	$div
+	mov	r1,r0
+1$:	mov	r0,sarg(sp)
+	return
+
+.srnd::	nosave
+	tst	sarg(sp)
+	beq	1$
+	mov	sarg(sp),seed
+	mov	sarg(sp),seed+2
+	return
+1$:	dir$	#gtime
+	mov	time+g.tict,seed
+	mov	time+g.tisc,seed+2
+	return
+
+	.end
