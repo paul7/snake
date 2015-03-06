@@ -1,4 +1,5 @@
 	.title	snake
+	.ident	/X00.50/
 
 	.mcall	exit$s,qiow$s,mrkt$,dir$,astx$s
 
@@ -20,12 +21,10 @@ dx:	.word	1
 dy:	.word	0
 len:	.word	3
 pausef:	.word	0
+redrwf:	.word	0
 maxx	=	40.
 maxy	=	40.
 field:	.blkb	maxy*maxx
-body:	.ascii	/+/
-empty:	.ascii	/ /
-target:	.ascii	/#/
 esc:	.byte	33
 buf:	.blkb	80.
 erase:	.ascii	<33>/[2J/
@@ -34,6 +33,24 @@ fmt:	.asciz	/[%D;%DH%A/
 vbord:	.ascii	/|/
 hbord:	.ascii	/-/
 cbord:	.ascii	/+/
+body:	.ascii	/+/
+empty:	.ascii	/ /
+target:	.ascii	/#/
+uhead:	.ascii	/v/
+dhead:	.ascii	/^/
+lhead:	.ascii	/>/
+rhead:	.ascii	/</
+head:	.blkb	1
+
+	.macro	dofld	rx,ry,rf,subr,?loopy,?loopx
+	mov	#field,rf
+	mov	#maxx,rx
+loopx:	mov	#maxy,ry
+loopy:	call	subr
+	inc	rf
+	sob	ry,loopy
+	sob	rx,loopx
+	.endm
 
 	.psect	dispat,d,ro
 distab:	entry	q,.gmend
@@ -51,29 +68,39 @@ distab:	entry	q,.gmend
 	.psect	code,i,ro
 start::	srnd
 	call	inifld
-	qiow$s	#io.wlb,#5,#1,,#iosb,,<#erase,#erasel>
+	call	clrscr
+	call	right
 	call	border
 	call	disply
 	dir$	#timer
 	gamini	#distab
 	exit$s
 
-inifld:	mov	#field,r2
-	mov	#maxx,r0
-4$:	mov	#maxy,r1
-1$:	cmp	r0,x
-	bne	2$
-	cmp	r1,y
-	bne	2$
-	movb	len,(r2)+
-	br	3$
-2$:	clrb	(r2)+
-3$:	sob	r1,1$
-	sob	r0,4$
+inifld:	dofld	r0,r1,r2,2$
 	call	plctgt
+	mov	x,r0
+	mov	#maxx,r1
+	call	$mul
+	add	y,r1
+	inc	field(r1)
+	return
+2$:	clrb	@r2
 	return
 
-redraw:
+clrscr:	qiow$s	#io.wlb,#5,#1,,#iosb,,<#erase,#erasel>
+	return
+
+redraw:	mov	pausef,-(sp)
+	mov	#1,pausef
+	call	dostep
+	com	redrwf
+	call	clrscr
+	call	border
+	call	disply
+	mov	(sp)+,pausef
+	call	dostep
+	return
+
 border:	mov	#maxy+1,r3
 	mov	#maxx+1,dispx
 	clr	dispy
@@ -115,18 +142,22 @@ pause:	com	pausef
 
 left:	clr	dy
 	mov	#-1,dx
+	movb	lhead,head
 	return
 	
 right:	clr	dy
 	mov	#1,dx
+	movb	rhead,head
 	return
 	
 down:	mov	#1,dy
 	clr	dx
+	movb	dhead,head
 	return
 	
 up:	mov	#-1,dy
 	clr	dx
+	movb	uhead,head
 	return
 
 step:	add	#2,sp
@@ -136,6 +167,7 @@ step:	add	#2,sp
 dostep:	tst	pausef
 	bne	9$
 	dir$	#timer
+	call	age
 	sub	dx,x
 	bge	4$
 	add	#maxx,x
@@ -163,6 +195,13 @@ dostep:	tst	pausef
 oops:	gamend
 	return
 
+age:	dofld	r0,r1,r2,1$
+	return
+1$:	tstb	@r2
+	ble	2$
+	incb	@r2
+2$:	return
+
 plctgt:	save02
 	rnd	r0,#maxx
 	mov	#maxy,r1
@@ -174,32 +213,35 @@ plctgt:	save02
 	movb	#-1,field(r1)
 	return
 
-disply:	mov	#field,r5
-	mov	#maxx,r4
-1$:	mov	#maxy,r3
-2$:	call	disp1	
-	inc	r5
-	sob	r3,2$
-	sob	r4,1$
+disply:	dofld	r4,r3,r5,displ1
+	clr	redrwf
 	return
-disp1:	movb	@r5,r2
-	beq	3$
-	cmp	r2,#-1
-	beq	6$
-	blt	3$
-	incb	@r5
+displ1:	movb	@r5,r2
+	beq	skip1
+	blt	tgt1
 	cmp	r2,#1
-	beq	4$
+	beq	head1
+	cmp	r2,#2
+	beq	body1
 	cmp	r2,len
-	ble	3$
-	clrb	@r5
+	bgt	empty1
+	tst	redrwf
+	beq	skip1
+body1:	mov	#body,cur
+	br	prt
+empty1:	clrb	@r5
 	mov	#empty,cur
-	br	5$
-6$:	decb	@r5
-	mov	#target,cur
-	br	5$
-4$:	mov	#body,cur
-5$:	mov	r4,dispx
+	br	prt
+tgt1:	cmp	r2,#-1
+	beq	1$
+	tst	redrwf
+	beq	skip1
+	br	2$
+1$:	decb	@r5
+2$:	mov	#target,cur
+	br	prt
+head1:	mov	#head,cur
+prt:	mov	r4,dispx
 	mov	r3,dispy
 	mov	#buf,r0
 	mov	#fmt,r1
@@ -207,6 +249,6 @@ disp1:	movb	@r5,r2
 	call	$edmsg
 	sub	#esc,r0
 	qiow$s	#io.wlb,#5,#1,,#iosb,,<#esc,r0>	
-3$:	return
+skip1:	return
 
 	.end	start
