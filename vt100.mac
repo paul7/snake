@@ -1,0 +1,119 @@
+	.title	vt100
+	.ident	/X00.10/
+
+	.mcall	qiow$,dir$,qiow$s
+	.mcall	nosave,save02
+
+	.macro	termsz	x,y
+	sub	#4,sp
+	call	.terms
+	mov	(sp)+,x
+	mov	(sp)+,y
+	.endm
+
+	.macro	prtat	x,y,str
+	mov	str,-(sp)
+	mov	x,-(sp)
+	mov	y,-(sp)
+	call	.prtat
+	add	#6,sp
+	.endm
+
+	.macro	clrscr
+	call	.clrsc
+	.endm
+
+	.macro	showcr
+	call	.shocr
+	.endm
+
+	.macro	hidecr
+	call	.hidcr
+	.endm
+
+	.psect	$$$dpb,d,ro
+attach:	qiow$	io.att,5
+detach:	qiow$	io.det,5
+queryt:	qiow$	io.wal,5,1,,iosb,,<query,quersz>
+readsz:	qiow$	io.rtt!tf.ral,5,1,,iosb,,<resp,respsz,,tbl>
+restor:	qiow$	io.wal,5,1,,iosb,,<rest,restsz>
+erase:	qiow$	io.wal,5,1,,iosb,,<erases,erasel>
+showcr:	qiow$	io.wal,5,1,,iosb,,<shows,showl>
+hidecr:	qiow$	io.wal,5,1,,iosb,,<hides,hidel>
+
+	.psect	$$$lit,d,ro
+tbl:	.word	0		; 0 - 15	
+	.word	0		; 16 - 31	
+	.word	0		; 32 - 47	
+	.word	0		; 48 - 63	
+	.word	0		; 64 - 79	
+	.word	4		; 80 - 95	
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+	.word	0
+query:	.ascii	<33>/7/
+	.ascii	<33>/[999;999H/
+	.ascii	<33>/[6n/
+quersz	=	. - query
+rest:	.ascii	<33>/8/
+restsz	=	. - rest
+esc:	.byte	33
+buf:	.blkb	80.
+erases:	.ascii	<33>/[2J/
+erasel	=	. - erases
+hides:	.ascii	<33>/[?25l/
+hidel	=	. - hides
+shows:	.ascii	<33>/[?25h/
+showl	=	. - shows
+fmt:	.asciz	/[%D;%DH%A/
+
+	.psect	$$$dat,d,rw
+iosb:	.blkw	2
+resp:	.blkb	80.
+respsz	=	. - resp
+
+	.psect	$$$cod,i,ro
+.terms::nosave
+	dir$	#attach
+	dir$	#queryt
+	dir$	#readsz
+	dir$	#restor
+	dir$	#detach
+	mov	#resp,r0
+1$:	cmpb	(r0)+,#'[
+	bne	1$
+	call	$cdtb
+	mov	r1,sarg+2(sp)
+2$:	cmpb	(r0)+,#';
+	bne	2$
+	call	$cdtb
+	mov	r1,sarg(sp)
+	return
+
+.prtat::save02
+	mov	#buf,r0
+	mov	#fmt,r1
+	mov	sp,r2
+	add	#sarg,r2
+	call	$edmsg
+	sub	#esc,r0
+	qiow$s	#io.wlb,#5,#1,,#iosb,,<#esc,r0>
+	return
+
+.clrsc::dir$	#erase
+	return
+
+.hidcr::dir$	#hidecr
+	return
+
+.shocr::dir$	#showcr
+	return
+
+	.end

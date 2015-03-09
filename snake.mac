@@ -6,6 +6,7 @@
 	.mcall	save02
 	.mcall	rnd,srnd
 	.mcall	gamini,onchar,onval,endtab,gamevt,gamend
+	.mcall	prtat,clrscr,hidecr,showcr
 
 	.psect	dpb,d,rw
 deftmr	=	20.
@@ -18,9 +19,6 @@ timer:	mrkt$	,deftmr,1,tmrast
 iosb:	.blkw	2
 y:	.word	20.
 x:	.word	20.
-dispy:	.word	0
-dispx:	.word	0
-cur:	.word	0
 dx:	.word	1
 dy:	.word	0
 len:	.word	3
@@ -29,15 +27,6 @@ redrwf:	.word	0
 maxx	=	40.
 maxy	=	40.
 field:	.blkb	maxy*maxx
-esc:	.byte	33
-buf:	.blkb	80.
-erase:	.ascii	<33>/[2J/
-erasel	=	. - erase
-hide:	.ascii	<33>/[?25l/
-hidel	=	. - hide
-show:	.ascii	<33>/[?25h/
-showl	=	. - show
-fmt:	.asciz	/[%D;%DH%A/
 vbord:	.ascii	/|/
 hbord:	.ascii	/-/
 cbord:	.ascii	/+/
@@ -79,14 +68,14 @@ distab:	onval	400,step
 	.psect	code,i,ro
 start::	srnd
 	call	inifld
-	call	clrscr
-	call	hidecr
+	clrscr
+	hidecr
 	call	right
 	call	border
 	call	disply
 	dir$	#timer
 	gamini	#distab
-	call	showcr
+	showcr
 	exit$s
 
 inifld:	dofld	r0,r1,r2,2$
@@ -98,15 +87,6 @@ inifld:	dofld	r0,r1,r2,2$
 	inc	field(r1)
 	return
 2$:	clrb	@r2
-	return
-
-clrscr:	qiow$s	#io.wlb,#5,#1,,#iosb,,<#erase,#erasel>
-	return
-
-hidecr:	qiow$s	#io.wlb,#5,#1,,#iosb,,<#hide,#hidel>
-	return
-
-showcr:	qiow$s	#io.wlb,#5,#1,,#iosb,,<#show,#showl>
 	return
 
 faster:	sub	#stptmr,timer+m.ktmg	
@@ -124,45 +104,21 @@ slower:	add	#stptmr,timer+m.ktmg
 redraw:	mov	pausef,-(sp)
 	mov	#1,pausef
 	com	redrwf
-	call	clrscr
+	clrscr
 	call	border
 	call	disply
 	mov	(sp)+,pausef
 	return
 
-border:	mov	#maxy+1,r3
-	mov	#maxx+1,dispx
-	clr	dispy
-1$:	mov	#buf,r0
-	mov	#fmt,r1
-	mov	#vbord,cur
-	mov	#dispy,r2
-	call	$edmsg
-	sub	#esc,r0
-	qiow$s	#io.wlb,#5,#1,,#iosb,,<#esc,r0>
-	inc	dispy
-	sob	r3,1$
-	mov	#maxx+1,r3
-	mov	#maxy+1,dispy
-	clr	dispx
-2$:	mov	#buf,r0
-	mov	#fmt,r1
-	mov	#hbord,cur
-	mov	#dispy,r2
-	call	$edmsg
-	sub	#esc,r0
-	qiow$s	#io.wlb,#5,#1,,#iosb,,<#esc,r0>
-	inc	dispx
-	sob	r3,2$
-	mov	#buf,r0
-	mov	#fmt,r1
-	mov	#cbord,cur
-	mov	#dispy,r2
-	mov	#maxx+1,dispx
-	mov	#maxy+1,dispy
-	call	$edmsg
-	sub	#esc,r0
-	qiow$s	#io.wlb,#5,#1,,#iosb,,<#esc,r0>
+border:	mov	#maxx+1,r0
+	mov	#maxy,r1
+1$:	prtat	r0,r1,#vbord
+	sob	r1,1$
+	mov	#maxy+1,r1
+	mov	#maxx,r0
+2$:	prtat	r0,r1,#hbord
+	sob	r0,2$
+	prtat	#maxy+1,#maxy+1,#cbord
 	return
 
 pause:	com	pausef
@@ -255,10 +211,10 @@ displ1:	movb	@r5,r2
 	bgt	empty1
 	tst	redrwf
 	beq	skip1
-body1:	mov	#body,cur
+body1:	mov	#body,r1
 	br	prt
 empty1:	clrb	@r5
-	mov	#empty,cur
+	mov	#empty,r1
 	br	prt
 tgt1:	cmp	r2,#-1
 	beq	1$
@@ -266,17 +222,10 @@ tgt1:	cmp	r2,#-1
 	beq	skip1
 	br	2$
 1$:	decb	@r5
-2$:	mov	#target,cur
+2$:	mov	#target,r1
 	br	prt
-head1:	mov	#head,cur
-prt:	mov	r4,dispx
-	mov	r3,dispy
-	mov	#buf,r0
-	mov	#fmt,r1
-	mov	#dispy,r2
-	call	$edmsg
-	sub	#esc,r0
-	qiow$s	#io.wlb,#5,#1,,#iosb,,<#esc,r0>	
+head1:	mov	#head,r1
+prt:	prtat	r4,r3,r1
 skip1:	return
 
 	.end	start
