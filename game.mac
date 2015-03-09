@@ -5,7 +5,7 @@
 	.mcall	spnd$s,rsum$s,dir$,gtsk$
 
 	.mcall	mkq,enq,deq
-	.mcall	nosave
+	.mcall	nosave,save02
 
 	.psect	$$$dpb,d,ro
 inwait:	qio$	io.ata!tf.xcc,5,,,,,<cmdast>
@@ -16,12 +16,16 @@ getnam:	gtsk$	tskinf
 stpflg:	.word	0
 tskinf:	.blkw	18.
 cmd:	.word	0
-char:	.byte	0
 	.even
-cmdque:	mkq	1
+cmdque:	mkq	2
 
-	.macro	entry	char,handler
+	.macro	onchar	char,handler
 	.byte	''char,0
+	.word	handler
+	.endm
+
+	.macro	onval	value,handler
+	.word	value
 	.word	handler
 	.endm
 
@@ -32,6 +36,12 @@ cmdque:	mkq	1
 	.macro	gamini	dsptab
 	mov	dsptab,-(sp)
 	call	.gmini
+	add	#2,sp
+	.endm
+
+	.macro	gamevt	value
+	mov	value,-(sp)
+	call	.gamev
 	add	#2,sp
 	.endm
 
@@ -67,10 +77,16 @@ proces:	mov	sarg(sp),r0
 	rsum$s	#tskinf
 	return
 
-cmdast:	movb	(sp)+,char
-	enq	#cmdque,#char
+cmdast:	call	.gamev
+	add	#2,sp
+	astx$s
+
+.gamev::save02
+	mov	sp,r0
+	add	#sarg,r0
+	enq	#cmdque,r0
 	bcs	1$
 	rsum$s	#tskinf
-1$:	astx$s
+1$:	return
 
 	.end

@@ -5,10 +5,14 @@
 
 	.mcall	save02
 	.mcall	rnd,srnd
-	.mcall	gamini,entry,endtab,gamend
+	.mcall	gamini,onchar,onval,endtab,gamevt,gamend
 
-	.psect	dpb,d,ro
-timer:	mrkt$	,20.,1,step
+	.psect	dpb,d,rw
+deftmr	=	20.
+mintmr	=	5.
+maxtmr	=	50.
+stptmr	=	5.
+timer:	mrkt$	,deftmr,1,tmrast
 
 	.psect	data,d,rw
 iosb:	.blkw	2
@@ -29,6 +33,10 @@ esc:	.byte	33
 buf:	.blkb	80.
 erase:	.ascii	<33>/[2J/
 erasel	=	. - erase
+hide:	.ascii	<33>/[?25l/
+hidel	=	. - hide
+show:	.ascii	<33>/[?25h/
+showl	=	. - show
 fmt:	.asciz	/[%D;%DH%A/
 vbord:	.ascii	/|/
 hbord:	.ascii	/-/
@@ -53,27 +61,32 @@ loopy:	call	subr
 	.endm
 
 	.psect	dispat,d,ro
-distab:	entry	q,.gmend
-	entry	Q,.gmend
-	entry	4,left
-	entry	8,up
-	entry	6,right
-	entry	2,down
-	entry	p,pause
-	entry	P,pause
-	entry	r,redraw
-	entry	R,redraw
+distab:	onval	400,step
+	onchar	q,.gmend
+	onchar	Q,.gmend
+	onchar	4,left
+	onchar	8,up
+	onchar	6,right
+	onchar	2,down
+	onchar	p,pause
+	onchar	P,pause
+	onchar	r,redraw
+	onchar	R,redraw
+	onchar	+,faster
+	onchar	-,slower
 	endtab
 
 	.psect	code,i,ro
 start::	srnd
 	call	inifld
 	call	clrscr
+	call	hidecr
 	call	right
 	call	border
 	call	disply
 	dir$	#timer
 	gamini	#distab
+	call	showcr
 	exit$s
 
 inifld:	dofld	r0,r1,r2,2$
@@ -90,15 +103,31 @@ inifld:	dofld	r0,r1,r2,2$
 clrscr:	qiow$s	#io.wlb,#5,#1,,#iosb,,<#erase,#erasel>
 	return
 
+hidecr:	qiow$s	#io.wlb,#5,#1,,#iosb,,<#hide,#hidel>
+	return
+
+showcr:	qiow$s	#io.wlb,#5,#1,,#iosb,,<#show,#showl>
+	return
+
+faster:	sub	#stptmr,timer+m.ktmg	
+	cmp	timer+m.ktmg,#mintmr
+	bge	1$
+	mov	#mintmr,timer+m.ktmg
+1$:	return
+
+slower:	add	#stptmr,timer+m.ktmg
+	cmp	timer+m.ktmg,#maxtmr
+	ble	1$
+	mov	#maxtmr,timer+m.ktmg
+1$:	return
+
 redraw:	mov	pausef,-(sp)
 	mov	#1,pausef
-	call	dostep
 	com	redrwf
 	call	clrscr
 	call	border
 	call	disply
 	mov	(sp)+,pausef
-	call	dostep
 	return
 
 border:	mov	#maxy+1,r3
@@ -137,7 +166,6 @@ border:	mov	#maxy+1,r3
 	return
 
 pause:	com	pausef
-	call	dostep
 	return
 
 left:	clr	dy
@@ -160,14 +188,14 @@ up:	mov	#-1,dy
 	movb	uhead,head
 	return
 
-step:	add	#2,sp
-	call	dostep
+tmrast:	add	#2,sp
+	tst	pausef
+	bne	1$
+	gamevt	#400
+1$:	dir$	#timer
 	astx$s
 
-dostep:	tst	pausef
-	bne	9$
-	dir$	#timer
-	call	age
+step:	call	age
 	sub	dx,x
 	bge	4$
 	add	#maxx,x
@@ -191,7 +219,7 @@ dostep:	tst	pausef
 	call	plctgt
 1$:	movb	#1,field(r1)
 	call	disply
-9$:	return
+	return
 oops:	gamend
 	return
 
