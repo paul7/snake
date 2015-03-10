@@ -1,7 +1,7 @@
 	.title	snake
 	.ident	/X00.50/
 
-	.mcall	exit$s,qiow$s,mrkt$,dir$,astx$s
+	.mcall	exit$s,qiow$s,mrkt$,dir$,astx$s,stop$s
 
 	.mcall	save02
 	.mcall	rnd,srnd
@@ -23,6 +23,7 @@ dx:	.word	1
 dy:	.word	0
 len:	.word	3
 pausef:	.word	0
+stopf:	.word	0
 redrwf:	.word	0
 maxx	=	40.
 maxy	=	40.
@@ -63,6 +64,8 @@ distab:	onval	400,step
 	onchar	R,redraw
 	onchar	+,faster
 	onchar	-,slower
+	onchar	s,stop
+	onchar	S,stop
 	endtab
 
 	.psect	code,i,ro
@@ -74,9 +77,17 @@ start::	srnd
 	call	border
 	call	disply
 	dir$	#timer
-	gamini	#distab
+2$:	gamini	#distab
 	showcr
+	tst	stopf
+	bne	1$
 	exit$s
+1$:	mov	#-1,pausef
+	stop$s
+	call	redraw
+	clr	stopf
+	hidecr
+	br	2$
 
 inifld:	dofld	r0,r1,r2,2$
 	call	plctgt
@@ -100,6 +111,9 @@ slower:	add	#stptmr,timer+m.ktmg
 	ble	1$
 	mov	#maxtmr,timer+m.ktmg
 1$:	return
+
+stop:	inc	stopf
+	jmp	.gmend	
 
 redraw:	mov	pausef,-(sp)
 	mov	#1,pausef
