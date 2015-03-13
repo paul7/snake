@@ -72,7 +72,7 @@ hides:	.ascii	<33>/[?25l/
 hidel	=	. - hides
 shows:	.ascii	<33>/[?25h/
 showl	=	. - shows
-fmt:	.asciz	/[%D;%DH%A/
+fmt:	.asciz	/[%D;%DH%I/
 
 	.psect	$$$dat,d,rw
 iosb:	.blkw	2

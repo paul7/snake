@@ -22,23 +22,28 @@ x:	.word	20.
 dx:	.word	1
 dy:	.word	0
 len:	.word	3
+score:	.word	0
 pausef:	.word	0
 stopf:	.word	0
 redrwf:	.word	0
 maxx	=	40.
 maxy	=	40.
 field:	.blkb	maxy*maxx
-vbord:	.ascii	/|/
-hbord:	.ascii	/-/
-cbord:	.ascii	/+/
-body:	.ascii	/+/
-empty:	.ascii	/ /
-target:	.ascii	/#/
-uhead:	.ascii	/v/
-dhead:	.ascii	/^/
-lhead:	.ascii	/>/
-rhead:	.ascii	/</
-head:	.blkb	1
+head:	.byte	0,0
+buf:	.blkb	40.
+
+	.psect	lit,d,ro
+vbord:	.asciz	/|/
+hbord:	.asciz	/-/
+cbord:	.asciz	/+/
+body:	.asciz	/+/
+empty:	.asciz	/ /
+target:	.asciz	/#/
+uhead:	.asciz	/v/
+dhead:	.asciz	/^/
+lhead:	.asciz	/>/
+rhead:	.asciz	/</
+scofmt:	.asciz	/Score: %M/
 
 	.macro	dofld	rx,ry,rf,subr,?loopy,?loopx
 	mov	#field,rf
@@ -75,6 +80,7 @@ start::	srnd
 	hidecr
 	call	right
 	call	border
+	call	dscore
 	call	disply
 	dir$	#timer
 2$:	gamini	#distab
@@ -88,6 +94,15 @@ start::	srnd
 	clr	stopf
 	hidecr
 	br	2$
+
+dscore:	save02
+	mov	#buf,r0
+	mov	#scofmt,r1
+	mov	#score,r2
+	call	$edmsg
+	clrb	@r0
+	prtat	#maxx+4,#4,#buf
+	return
 
 inifld:	dofld	r0,r1,r2,2$
 	call	plctgt
@@ -120,6 +135,7 @@ redraw:	mov	pausef,-(sp)
 	com	redrwf
 	clrscr
 	call	border
+	call	dscore
 	call	disply
 	mov	(sp)+,pausef
 	return
@@ -186,6 +202,8 @@ step:	call	age
 	bgt	oops
 	beq	1$
 	inc	len
+	inc	score
+	call	dscore
 	call	plctgt
 1$:	movb	#1,field(r1)
 	call	disply
