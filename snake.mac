@@ -1,5 +1,5 @@
 	.title	snake
-	.ident	/X00.50/
+	.ident	/X00.51/
 
 	.mcall	exit$s,qiow$s,mrkt$,dir$,astx$s,stop$s
 
@@ -19,6 +19,8 @@ timer:	mrkt$	,deftmr,1,tmrast
 iosb:	.blkw	2
 y:	.word	20.
 x:	.word	20.
+newdx:	.word	0
+newdy:	.word	0
 dx:	.word	1
 dy:	.word	0
 len:	.word	3
@@ -29,6 +31,7 @@ redrwf:	.word	0
 maxx	=	40.
 maxy	=	40.
 field:	.blkb	maxy*maxx
+newhea:	.byte	0
 head:	.byte	0,0
 buf:	.blkb	40.
 
@@ -154,25 +157,34 @@ border:	mov	#maxx+1,r0
 pause:	com	pausef
 	return
 
-left:	clr	dy
-	mov	#-1,dx
-	movb	lhead,head
-	return
+left:	clr	newdy
+	mov	#-1,newdx
+	movb	lhead,newhea
+	br	newdir
 	
-right:	clr	dy
-	mov	#1,dx
-	movb	rhead,head
-	return
+right:	clr	newdy
+	mov	#1,newdx
+	movb	rhead,newhea
+	br	newdir
 	
-down:	mov	#1,dy
-	clr	dx
-	movb	dhead,head
-	return
+down:	mov	#1,newdy
+	clr	newdx
+	movb	dhead,newhea
+	br	newdir
 	
-up:	mov	#-1,dy
-	clr	dx
-	movb	uhead,head
-	return
+up:	mov	#-1,newdy
+	clr	newdx
+	movb	uhead,newhea
+newdir:	mov	newdx,r0
+	add	dx,r0
+	bne	1$
+	mov	newdy,r1
+	add	dy,r1
+	beq	2$
+1$:	mov	newdx,dx
+	mov	newdy,dy
+	movb	newhea,head
+2$:	return
 
 tmrast:	add	#2,sp
 	tst	pausef
