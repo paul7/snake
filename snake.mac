@@ -1,5 +1,5 @@
 	.title	snake
-	.ident	/X00.52/
+	.ident	/X00.53/
 
 	.mcall	exit$s,qiow$s,mrkt$,dir$,astx$s,stop$s
 
@@ -33,12 +33,14 @@ maxy	=	40.
 field:	.blkb	maxy*maxx
 newhea:	.byte	0
 head:	.byte	0,0
-buf:	.blkb	40.
+buf:	.blkb	maxx+40.
 
 	.psect	lit,d,ro
 vbord:	.asciz	/|/
-hbord:	.asciz	/-/
-cbord:	.asciz	/+/
+hbord:	.rept	maxx
+	.ascii	/-/
+	.endr
+	.asciz	/+/
 body:	.asciz	/+/
 empty:	.asciz	/ /
 target:	.asciz	/#/
@@ -139,15 +141,10 @@ redraw:	mov	pausef,-(sp)
 	mov	(sp)+,pausef
 	return
 
-border:	mov	#maxx+1,r0
-	mov	#maxy,r1
-1$:	prtat	r0,r1,#vbord
-	sob	r1,1$
-	mov	#maxy+1,r1
-	mov	#maxx,r0
-2$:	prtat	r0,r1,#hbord
-	sob	r0,2$
-	prtat	#maxy+1,#maxy+1,#cbord
+border:	mov	#maxy,r0
+1$:	prtat	#maxx+1,r0,#vbord
+	sob	r0,1$
+	prtat	#0,#maxy+1,#hbord
 	return
 
 pause:	com	pausef
