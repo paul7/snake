@@ -1,5 +1,5 @@
 	.title	snake
-	.ident	/X00.51/
+	.ident	/X00.52/
 
 	.mcall	exit$s,qiow$s,mrkt$,dir$,astx$s,stop$s
 
@@ -60,6 +60,7 @@ loopy:	call	subr
 
 	.psect	dispat,d,ro
 distab:	onval	400,step
+	onval	1000,redraw
 	onchar	q,.gmend
 	onchar	Q,.gmend
 	onchar	4,left
@@ -79,23 +80,18 @@ distab:	onval	400,step
 	.psect	code,i,ro
 start::	srnd
 	call	inifld
-	clrscr
-	hidecr
 	call	right
-	call	border
-	call	dscore
-	call	disply
 	dir$	#timer
-2$:	gamini	#distab
+2$:	hidecr
+	gamevt	#1000
+	gamini	#distab
 	showcr
 	tst	stopf
 	bne	1$
 	exit$s
 1$:	mov	#-1,pausef
 	stop$s
-	call	redraw
 	clr	stopf
-	hidecr
 	br	2$
 
 dscore:	save02
