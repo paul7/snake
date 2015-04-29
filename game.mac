@@ -16,7 +16,6 @@ getnam:	gtsk$	tskinf
 stpflg:	.word	0
 tskinf:	.blkw	18.
 cmd:	.word	0
-	.even
 cmdque:	mkq	2
 
 	.macro	onchar	char,handler
