@@ -14,14 +14,23 @@
 	mov	(sp)+,dst
 	.endm
 
-	.macro	srnd	seed
-	.if nb	seed
-	mov	seed,-(sp)
-	.iff
-	clr	-(sp)
-	.endc
+	.macro	srnd	.seed
+	.if nb	.seed
+	mov	.seed,-(sp)
 	call	.srnd
 	add	#2,sp
+	.iff
+	call	.srndt
+	.endc
+	.endm
+
+	.macro	gtseed	dst1,dst2
+	mov	.seed,dst1
+	.if b	dst2
+	mov	.seed+2,dst1+2
+	.iff
+	mov	.seed+2,dst2
+	.endc
 	.endm
 
 	.psect	$$$dpb,d,ro
@@ -29,18 +38,17 @@ gtime:	gtim$	time
 
 	.psect	$$$dat,d,rw
 time:	.blkw	10
-seed:	.word	123.
-	.word	456.
+.seed::	.blkw	2
 mult:	.word	48271.
 
 	.psect	$$$cod,i,ro
 .rnd::	save05
 	mov	mult,r0
-	mov	seed,r2
-	mov	seed+2,r3
+	mov	.seed,r2
+	mov	.seed+2,r3
 	call	$dmul
-	mov	r0,seed
-	mov	r1,seed+2
+	mov	r0,.seed
+	mov	r1,.seed+2
 	mov	sarg(sp),r1
 	beq	1$
 	call	$div
@@ -49,14 +57,16 @@ mult:	.word	48271.
 	return
 
 .srnd::	nosave
-	tst	sarg(sp)
-	beq	1$
-	mov	sarg(sp),seed
-	mov	sarg(sp),seed+2
+	mov	sarg(sp),.seed
+	mov	sarg(sp),.seed+2
 	return
-1$:	dir$	#gtime
-	mov	time+g.tict,seed
-	mov	time+g.tisc,seed+2
+
+.srndt::nosave
+	dir$	#gtime
+	mov	time+g.tict,.seed+2
+	mov	time+g.tisc,.seed
+	inc	.seed
+	inc	.seed+2
 	return
 
 	.end
